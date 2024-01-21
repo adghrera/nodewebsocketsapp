@@ -11,14 +11,18 @@ const wsServer = new WebSocket.Server({
   noServer: true,
 }); // a websocket server
 
-wsServer.on("connection", function (ws) {
+const myclients = {};
+
+wsServer.on("connection", function (ws, request, clientId) {
   // client connected
+  myclients[clientId] = ws;
+  ws.clientId = clientId;
 
   wsServer.clients.forEach(function each(client) {
     if (client.readyState === WebSocket.OPEN) {
       // check if client is ready
       console.log(client);
-      client.send("client connected " + client);
+      client.send("client connected " + clientId);
     }
   });
 
@@ -26,13 +30,33 @@ wsServer.on("connection", function (ws) {
   ws.on("message", function (msg) {
     // what to do on message event
     wsServer.clients.forEach(function each(client) {
-      if (client.readyState === WebSocket.OPEN) {
+      if (ws != client && client.readyState === WebSocket.OPEN) {
         // check if client is ready
-        client.send(msg.toString());
+        client.send(
+          "from: " +
+            ws.clientId +
+            ", to :" +
+            client.clientId +
+            ", msg: " +
+            msg.toString()
+        );
       }
     });
   });
 });
+
+function getClientId(req) {
+  if (req?.headers && req.headers["sec-websocket-protocol"]) {
+    const proto = req.headers["sec-websocket-protocol"];
+    if (proto.toLowerCase().indexOf("authorization,") > -1) {
+      const clientId = proto.split(",")[1].trim();
+      console.log("CLIENT ID *****", clientId);
+      return clientId;
+    }
+  }
+  console.log("CLIENT ID *****", null);
+  return null;
+}
 
 myServer.on("upgrade", async function upgrade(request, socket, head) {
   //handling upgrade(http to websocekt) event
@@ -45,6 +69,8 @@ myServer.on("upgrade", async function upgrade(request, socket, head) {
 
   //emit connection when request accepted
   wsServer.handleUpgrade(request, socket, head, function done(ws) {
-    wsServer.emit("connection", ws, request);
+    console.log("CLIENT UPGRADE HEADERS *****", request.headers);
+    const clientId = getClientId(request);
+    wsServer.emit("connection", ws, request, clientId);
   });
 });

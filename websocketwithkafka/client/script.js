@@ -1,6 +1,11 @@
 //Websocekt variables
+function generateId() {
+  let r = (Math.random() + 1).toString(36).substring(7);
+  return r;
+}
+
 const url = "ws://localhost:9876/myWebsocket";
-const mywsServer = new WebSocket(url);
+const mywsServer = new WebSocket(url, ["Authorization", `${generateId()}`]);
 
 //DOM Elements
 const myMessages = document.getElementById("messages");
