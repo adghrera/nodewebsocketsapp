@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 const express = require("express");
 const app = express();
 const path = require("path");
+const { startConsumer } = require("./kafkaconsumer");
 
 app.use("/", express.static(path.resolve(__dirname, "../client")));
 
@@ -21,13 +22,15 @@ wsServer.on("connection", function (ws, request, clientId) {
   wsServer.clients.forEach(function each(client) {
     if (client.readyState === WebSocket.OPEN) {
       // check if client is ready
-      console.log(client);
+      // console.log(client);
       client.send("client connected " + clientId);
     }
   });
 
   // what should a websocket do on connection
-  ws.on("message", function (msg) {
+  ws.on("message", async function (msg) {
+    await sendMsg({ from: ws.clientId, msg: msg.toString() });
+
     // what to do on message event
     wsServer.clients.forEach(function each(client) {
       if (ws != client && client.readyState === WebSocket.OPEN) {
@@ -69,8 +72,12 @@ myServer.on("upgrade", async function upgrade(request, socket, head) {
 
   //emit connection when request accepted
   wsServer.handleUpgrade(request, socket, head, function done(ws) {
-    console.log("CLIENT UPGRADE HEADERS *****", request.headers);
+    // console.log("CLIENT UPGRADE HEADERS *****", request.headers);
     const clientId = getClientId(request);
     wsServer.emit("connection", ws, request, clientId);
   });
 });
+
+(async () => {
+  await startConsumer();
+})();
