@@ -5,7 +5,8 @@ function generateId() {
 }
 
 const url = "ws://localhost:9876/myWebsocket";
-const mywsServer = new WebSocket(url, ["Authorization", `${generateId()}`]);
+let mywsServer = connectWebSocket();
+// new WebSocket(url, ["Authorization", `${generateId()}`]);
 
 //DOM Elements
 const myMessages = document.getElementById("messages");
@@ -14,6 +15,40 @@ const sendBtn = document.getElementById("send");
 
 sendBtn.disabled = true;
 sendBtn.addEventListener("click", sendMsg, false);
+
+function connectWebSocket() {
+  const ws = new WebSocket(url, ["Authorization", `${generateId()}`]);
+
+  ws.onclose = ws.onmessage = ws.onerror = ws.onopen = null;
+
+  //enabling send message when connection is open
+  ws.onopen = function () {
+    sendBtn.disabled = false;
+    console.log("ONOPEN", ws);
+  };
+
+  //handling message event
+  ws.onmessage = function (event) {
+    const { data } = event;
+    msgGeneration(data, "Server");
+    console.log("ONMESSAGE", ws);
+  };
+
+  ws.onclose = function (event) {
+    // const { data } = event;
+    // msgGeneration("Connection closed", "Server");
+    sendBtn.disabled = true;
+    console.log("ONCLOSE", ws);
+  };
+
+  ws.onerror = function (event) {
+    // const { data } = event;
+    // msgGeneration("Error", "Server");
+    console.log("ONERROR", ws);
+  };
+
+  return ws;
+}
 
 //Sending message from client
 function sendMsg() {
@@ -29,13 +64,15 @@ function msgGeneration(msg, from) {
   myMessages.appendChild(newMessage);
 }
 
-//enabling send message when connection is open
-mywsServer.onopen = function () {
-  sendBtn.disabled = false;
-};
+function checkConnection() {
+  console.log("CHECKING CONNECTION");
+  if (mywsServer.readyState === 1) {
+    console.log("CONNECTED");
+  } else {
+    console.log("NOT CONNECTED");
+    mywsServer = connectWebSocket();
+  }
+  setTimeout(checkConnection, 2000);
+}
 
-//handling message event
-mywsServer.onmessage = function (event) {
-  const { data } = event;
-  msgGeneration(data, "Server");
-};
+setTimeout(checkConnection, 5000);

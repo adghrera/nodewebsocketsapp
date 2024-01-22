@@ -3,6 +3,7 @@ const express = require("express");
 const app = express();
 const path = require("path");
 const { startConsumer } = require("./kafkaconsumer");
+const { sendMsg } = require("./kafkaproducer");
 
 app.use("/", express.static(path.resolve(__dirname, "../client")));
 
@@ -14,37 +15,38 @@ const wsServer = new WebSocket.Server({
 
 const myclients = {};
 
-wsServer.on("connection", function (ws, request, clientId) {
+wsServer.on("connection", async function (ws, request, clientId) {
   // client connected
   myclients[clientId] = ws;
   ws.clientId = clientId;
 
-  wsServer.clients.forEach(function each(client) {
-    if (client.readyState === WebSocket.OPEN) {
-      // check if client is ready
-      // console.log(client);
-      client.send("client connected " + clientId);
-    }
-  });
+  // wsServer.clients.forEach(function each(client) {
+  //   if (client.readyState === WebSocket.OPEN) {
+  //     // check if client is ready
+  //     // console.log(client);
+  //     client.send("client connected " + clientId);
+  //   }
+  // });
+  await sendMsg({ from: ws.clientId, msg: "Client connected " + clientId });
 
   // what should a websocket do on connection
   ws.on("message", async function (msg) {
     await sendMsg({ from: ws.clientId, msg: msg.toString() });
 
     // what to do on message event
-    wsServer.clients.forEach(function each(client) {
-      if (ws != client && client.readyState === WebSocket.OPEN) {
-        // check if client is ready
-        client.send(
-          "from: " +
-            ws.clientId +
-            ", to :" +
-            client.clientId +
-            ", msg: " +
-            msg.toString()
-        );
-      }
-    });
+    // wsServer.clients.forEach(function each(client) {
+    //   if (ws != client && client.readyState === WebSocket.OPEN) {
+    //     // check if client is ready
+    //     client.send(
+    //       "from: " +
+    //         ws.clientId +
+    //         ", to :" +
+    //         client.clientId +
+    //         ", msg: " +
+    //         msg.toString()
+    //     );
+    //   }
+    // });
   });
 });
 
@@ -78,6 +80,17 @@ myServer.on("upgrade", async function upgrade(request, socket, head) {
   });
 });
 
+function onKafkaMessage(msg) {
+  Object.keys(myclients).forEach(function (key, index) {
+    // key: the name of the object key
+    // index: the ordinal position of the key within the object
+    const client = myclients[key];
+    if (client && client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  });
+}
+
 (async () => {
-  await startConsumer();
+  await startConsumer(onKafkaMessage);
 })();

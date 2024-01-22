@@ -1,16 +1,23 @@
 const { Kafka } = require("kafkajs");
-const { KAFKA_SERVERS } = require("./const");
+const {
+  KAFKA_SERVERS,
+  KAFKA_CONNECTION_TIMEOUT,
+  KAFKA_TOPIC,
+  KAFKA_GROUP,
+  KAFKA_CLIENT,
+} = require("./const");
 
 const kafka = new Kafka({
-  clientId: "my-app",
-  brokers: ["192.168.1.131:9092"],
+  clientId: KAFKA_CLIENT,
+  brokers: KAFKA_SERVERS,
+  connectionTimeout: KAFKA_CONNECTION_TIMEOUT,
 });
 
 async function startConsumer(callback) {
-  const consumer = kafka.consumer({ groupId: "test-group" });
+  const consumer = kafka.consumer({ groupId: KAFKA_GROUP });
 
   await consumer.connect();
-  await consumer.subscribe({ topic: "test-topic", fromBeginning: true });
+  await consumer.subscribe({ topic: KAFKA_TOPIC, fromBeginning: true });
 
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
@@ -18,7 +25,7 @@ async function startConsumer(callback) {
         value: message?.value?.toString(),
       });
       if (callback) {
-        callback(message.value);
+        callback(message?.value?.toString());
       }
     },
   });
